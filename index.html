@@ -146,8 +146,8 @@ const SCHEMAS = {
       { key:"terms",             label:"Terms & Quotation", type:"textarea" },
       { key:"feedback",          label:"Other Feedbacks",   type:"textarea" }
     ],
-    listCols: ["name","status","sub_category","region","language","main_content_type","twitter_followers","owner"],
-    filters: ["sub_category","region","language","owner","main_content_type"]
+    listCols: ["name","status","sub_category","trading_asset","trading_pairs","trading_platform","social_content","main_content_type","language","region","twitter_followers","owner"],
+    filters: ["sub_category","trading_asset","trading_platform","region","language","owner"]
   },
   nontrader: {
     table: "non_trader_kols",
@@ -172,7 +172,7 @@ const SCHEMAS = {
       { key:"terms",             label:"Terms & Quotation", type:"textarea" },
       { key:"feedback",          label:"Other Feedbacks",   type:"textarea" }
     ],
-    listCols: ["name","status","sub_category","region","language","main_content_type","twitter_followers","owner"],
+    listCols: ["name","status","sub_category","social_content","main_content_type","language","region","twitter_followers","owner"],
     filters: ["sub_category","region","language","owner","main_content_type"]
   },
   agency: {
@@ -193,7 +193,7 @@ const SCHEMAS = {
       { key:"terms",          label:"Terms",           type:"textarea" },
       { key:"feedback",       label:"Feedbacks",       type:"textarea" }
     ],
-    listCols: ["name","status","region","kol_type","kol_qty","contact_person","owner"],
+    listCols: ["name","status","account","website","region","kol_type","kol_qty","contact_person","owner"],
     filters: ["region","owner","kol_type"]
   }
 };
