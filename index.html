@@ -146,7 +146,7 @@ const SCHEMAS = {
       { key:"terms",             label:"Terms & Quotation", type:"textarea" },
       { key:"feedback",          label:"Other Feedbacks",   type:"textarea" }
     ],
-    listCols: ["name","status","sub_category","trading_asset","trading_pairs","trading_platform","social_content","main_content_type","language","region","twitter_followers","owner"],
+    listCols: ["name","status","sub_category","trading_asset","trading_pairs","trading_platform","social_content","main_content_type","language","region","youtube_link","youtube_followers","twitter_link","twitter_followers","telegram_link","telegram_members","contact_no","email","terms","feedback","owner"],
     filters: ["sub_category","trading_asset","trading_platform","region","language","owner"]
   },
   nontrader: {
@@ -172,7 +172,7 @@ const SCHEMAS = {
       { key:"terms",             label:"Terms & Quotation", type:"textarea" },
       { key:"feedback",          label:"Other Feedbacks",   type:"textarea" }
     ],
-    listCols: ["name","status","sub_category","social_content","main_content_type","language","region","twitter_followers","owner"],
+    listCols: ["name","status","sub_category","social_content","main_content_type","language","region","youtube_link","youtube_followers","twitter_link","twitter_followers","telegram_link","telegram_members","contact_no","email","terms","feedback","owner"],
     filters: ["sub_category","region","language","owner","main_content_type"]
   },
   agency: {
@@ -193,7 +193,7 @@ const SCHEMAS = {
       { key:"terms",          label:"Terms",           type:"textarea" },
       { key:"feedback",       label:"Feedbacks",       type:"textarea" }
     ],
-    listCols: ["name","status","account","website","region","kol_type","kol_qty","contact_person","owner"],
+    listCols: ["name","status","account","website","region","kol_type","kol_qty","contact_person","contact_no","email","terms","feedback","owner"],
     filters: ["region","owner","kol_type"]
   }
 };
@@ -418,14 +418,26 @@ function renderModule(mod) {
     ? `<tr><td colspan="${sch.listCols.length+1}" class="text-center text-gray-400 py-10">No records. Click + Add to create one.</td></tr>`
     : rows.map(r => {
         const tds = sch.listCols.map(c => {
+          const fieldDef = sch.fields.find(f => f.key === c) || {};
+          const v = r[c];
           if (c === "status") return `<td>${statusPill(r.status)}</td>`;
-          if (c === "name")   return `<td class="font-semibold text-gray-900">${escapeHtml(r[c]||"")}</td>`;
+          if (c === "name")   return `<td class="font-semibold text-gray-900 whitespace-nowrap">${escapeHtml(v||"")}</td>`;
           if (c.endsWith("_followers") || c.endsWith("_members") || c === "kol_qty")
-            return `<td class="text-right tabular-nums">${r[c]==null?"—":Number(r[c]).toLocaleString()}</td>`;
-          return `<td>${escapeHtml(r[c]||"")}</td>`;
+            return `<td class="text-right tabular-nums">${v==null?"—":Number(v).toLocaleString()}</td>`;
+          if (fieldDef.type === "url" && v) {
+            const short = v.replace(/^https?:\/\/(www\.)?/, "").slice(0, 28);
+            return `<td><a href="${escapeAttr(v)}" target="_blank" rel="noopener" class="text-arx-violet hover:underline" title="${escapeAttr(v)}">${escapeHtml(short)}${v.length>28?"…":""}</a></td>`;
+          }
+          if (fieldDef.type === "email" && v)
+            return `<td><a href="mailto:${escapeAttr(v)}" class="text-arx-violet hover:underline">${escapeHtml(v)}</a></td>`;
+          if (fieldDef.type === "textarea" && v) {
+            const short = v.length > 50 ? v.slice(0,50)+"…" : v;
+            return `<td class="text-gray-600" title="${escapeAttr(v)}" style="max-width:240px">${escapeHtml(short)}</td>`;
+          }
+          return `<td class="whitespace-nowrap">${escapeHtml(v||"")}</td>`;
         }).join("");
         return `<tr class="cursor-pointer" data-id="${r.id}">${tds}
-          <td class="text-right"><button class="edit-row text-arx-violet text-xs hover:underline" data-id="${r.id}">Edit ›</button></td>
+          <td class="text-right whitespace-nowrap"><button class="edit-row text-arx-violet text-xs hover:underline" data-id="${r.id}">Edit ›</button></td>
         </tr>`;
       }).join("");
 
