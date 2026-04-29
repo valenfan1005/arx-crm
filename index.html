@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ARX KOL CRM</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./config.js"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Plus Jakarta Sans", Inter, sans-serif; }
+  .arx-violet { color: #B38DF4; }
+  .bg-arx-violet { background: #B38DF4; }
+  .bg-arx-purple { background: #381B81; }
+  .bg-arx-midnight { background: #070700; }
+  .text-arx-frost { color: #E9EAF0; }
+  table.crm th { font-weight:600; font-size:12px; text-transform:uppercase; color:#6b7280; padding:8px 10px; text-align:left; border-bottom:1px solid #e5e7eb; white-space:nowrap; }
+  table.crm td { padding:8px 10px; border-bottom:1px solid #f3f4f6; font-size:13px; vertical-align:top; }
+  table.crm tr:hover td { background:#fafafa; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+  .pill-prospects { background:#f3f4f6; color:#374151; }
+  .pill-incontact { background:#dbeafe; color:#1e40af; }
+  .pill-innegotiating { background:#fef3c7; color:#92400e; }
+  .pill-readytosign { background:#dcfce7; color:#166534; }
+  .pill-rejected { background:#fee2e2; color:#991b1b; }
+  .modal-backdrop { background:rgba(7,7,0,.6); }
+  .nav-item { padding:10px 14px; border-radius:8px; color:#cbd5e1; cursor:pointer; font-size:14px; display:flex; align-items:center; gap:10px; }
+  .nav-item:hover { background:#1f2937; color:white; }
+  .nav-item.active { background:#381B81; color:white; }
+</style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+<!-- ============== LOGIN SCREEN ============== -->
+<div id="login-screen" class="hidden min-h-screen items-center justify-center bg-arx-midnight">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8">
+    <div class="text-center mb-6">
+      <div class="text-2xl font-bold tracking-tight">arx <span class="arx-violet">crm</span></div>
+      <div class="text-xs text-gray-500 mt-1">KOL Pipeline Management</div>
+    </div>
+    <form id="login-form" class="space-y-3">
+      <div>
+        <label class="text-xs font-semibold text-gray-600">Email</label>
+        <input type="email" id="login-email" required autocomplete="username"
+               class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-arx-violet">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-600">Password</label>
+        <input type="password" id="login-password" required autocomplete="current-password"
+               class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-arx-violet">
+      </div>
+      <button type="submit" class="w-full bg-arx-violet text-white font-semibold py-2.5 rounded-lg hover:opacity-90">
+        Sign in
+      </button>
+      <div id="login-error" class="text-red-600 text-xs hidden"></div>
+    </form>
+    <div class="text-xs text-gray-400 mt-6 text-center">
+      Don't have an account? Ask Valen.
+    </div>
+  </div>
+</div>
+
+<!-- ============== APP SHELL ============== -->
+<div id="app-shell" class="hidden min-h-screen flex">
+  <!-- Sidebar -->
+  <aside class="w-60 bg-arx-midnight text-arx-frost flex flex-col">
+    <div class="p-5 border-b border-gray-800">
+      <div class="text-lg font-bold">arx <span class="arx-violet">crm</span></div>
+      <div class="text-xs text-gray-400 mt-0.5" id="user-email">—</div>
+    </div>
+    <nav class="flex-1 p-3 space-y-1">
+      <div class="nav-item active" data-view="dashboard">📊 Dashboard</div>
+      <div class="nav-item" data-view="trader">💹 Trader KOL <span class="text-xs text-gray-500 ml-auto">P0</span></div>
+      <div class="nav-item" data-view="nontrader">🎙 Non-Trader KOL <span class="text-xs text-gray-500 ml-auto">P1</span></div>
+      <div class="nav-item" data-view="agency">🏢 Agency <span class="text-xs text-gray-500 ml-auto">P0</span></div>
+      <div class="nav-item" data-view="settings">⚙️ Settings</div>
+    </nav>
+    <div class="p-3 border-t border-gray-800">
+      <button id="logout-btn" class="w-full text-left text-xs text-gray-400 hover:text-white py-2 px-3">
+        Sign out
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 overflow-x-hidden">
+    <div id="view-root" class="p-6"></div>
+  </main>
+</div>
+
+<!-- ============== EDIT MODAL ============== -->
+<div id="modal" class="hidden fixed inset-0 z-50 modal-backdrop items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div class="p-5 border-b flex items-center justify-between sticky top-0 bg-white">
+      <h3 id="modal-title" class="font-bold text-lg">Edit</h3>
+      <button onclick="closeModal()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
+    </div>
+    <form id="modal-form" class="p-5 space-y-3"></form>
+    <div class="p-5 border-t flex justify-between sticky bottom-0 bg-white">
+      <button id="modal-delete" type="button" class="text-red-600 text-sm hidden hover:underline">Delete</button>
+      <div class="flex gap-2 ml-auto">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm border rounded-lg">Cancel</button>
+        <button id="modal-save" type="button" class="px-4 py-2 text-sm bg-arx-violet text-white rounded-lg font-semibold">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================
+ * ARX KOL CRM — single-file vanilla JS app
+ * =========================================================== */
+
+const cfg = window.ARX_CRM_CONFIG || {};
+const sb  = (cfg.SUPABASE_URL && cfg.SUPABASE_URL.startsWith("https://"))
+          ? supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
+          : null;
+
+const STATUSES = ["Prospects","In Contact","In Negotiating","Ready to Sign","Rejected"];
+
+// schema-per-module: column → label, type, optionsCategory
+const SCHEMAS = {
+  trader: {
+    table: "trader_kols",
+    label: "Trader KOL",
+    fields: [
+      { key:"name",              label:"KOL Name",          type:"text", required:true },
+      { key:"status",            label:"Status",            type:"select", opt:"status" },
+      { key:"sub_category",      label:"Sub-category",      type:"select", opt:"trader_sub_category" },
+      { key:"owner",             label:"Owner",             type:"select", opt:"owner" },
+      { key:"region",            label:"Region",            type:"select", opt:"region" },
+      { key:"language",          label:"Language",          type:"select", opt:"language" },
+      { key:"trading_asset",     label:"Trading Asset",     type:"select", opt:"trading_asset" },
+      { key:"trading_pairs",     label:"Trading Pairs",     type:"select", opt:"trading_pairs" },
+      { key:"trading_platform",  label:"Trading Platform",  type:"select", opt:"trading_platform" },
+      { key:"social_content",    label:"Social Content",    type:"select", opt:"social_content" },
+      { key:"main_content_type", label:"Main Content Type", type:"select", opt:"content_type" },
+      { key:"youtube_link",      label:"YouTube Link",      type:"url" },
+      { key:"youtube_followers", label:"YouTube Followers", type:"number" },
+      { key:"twitter_link",      label:"Twitter Link",      type:"url" },
+      { key:"twitter_followers", label:"Twitter Followers", type:"number" },
+      { key:"telegram_link",     label:"Telegram Link",     type:"url" },
+      { key:"telegram_members",  label:"Telegram Members",  type:"number" },
+      { key:"contact_no",        label:"Contact No.",       type:"text" },
+      { key:"email",             label:"Email",             type:"email" },
+      { key:"terms",             label:"Terms & Quotation", type:"textarea" },
+      { key:"feedback",          label:"Other Feedbacks",   type:"textarea" }
+    ],
+    listCols: ["name","status","sub_category","region","language","main_content_type","twitter_followers","owner"],
+    filters: ["sub_category","region","language","owner","main_content_type"]
+  },
+  nontrader: {
+    table: "non_trader_kols",
+    label: "Non-Trader KOL",
+    fields: [
+      { key:"name",              label:"KOL Name",          type:"text", required:true },
+      { key:"status",            label:"Status",            type:"select", opt:"status" },
+      { key:"sub_category",      label:"Sub-category",      type:"select", opt:"nontrader_sub_category" },
+      { key:"owner",             label:"Owner",             type:"select", opt:"owner" },
+      { key:"region",            label:"Region",            type:"select", opt:"region" },
+      { key:"language",          label:"Language",          type:"select", opt:"language" },
+      { key:"social_content",    label:"Social Content",    type:"select", opt:"social_content" },
+      { key:"main_content_type", label:"Main Content Type", type:"select", opt:"content_type" },
+      { key:"youtube_link",      label:"YouTube Link",      type:"url" },
+      { key:"youtube_followers", label:"YouTube Followers", type:"number" },
+      { key:"twitter_link",      label:"Twitter Link",      type:"url" },
+      { key:"twitter_followers", label:"Twitter Followers", type:"number" },
+      { key:"telegram_link",     label:"Telegram Link",     type:"url" },
+      { key:"telegram_members",  label:"Telegram Members",  type:"number" },
+      { key:"contact_no",        label:"Contact No.",       type:"text" },
+      { key:"email",             label:"Email",             type:"email" },
+      { key:"terms",             label:"Terms & Quotation", type:"textarea" },
+      { key:"feedback",          label:"Other Feedbacks",   type:"textarea" }
+    ],
+    listCols: ["name","status","sub_category","region","language","main_content_type","twitter_followers","owner"],
+    filters: ["sub_category","region","language","owner","main_content_type"]
+  },
+  agency: {
+    table: "agencies",
+    label: "Agency",
+    fields: [
+      { key:"name",           label:"Agency Name",     type:"text", required:true },
+      { key:"status",         label:"Status",          type:"select", opt:"status" },
+      { key:"owner",          label:"Owner",           type:"select", opt:"owner" },
+      { key:"region",         label:"Region",          type:"select", opt:"region" },
+      { key:"account",        label:"Account",         type:"text" },
+      { key:"website",        label:"Website",         type:"url" },
+      { key:"kol_type",       label:"KOL Type",        type:"text" },
+      { key:"kol_qty",        label:"KOL Qty",         type:"number" },
+      { key:"contact_person", label:"Contact Person",  type:"text" },
+      { key:"contact_no",     label:"Contact No.",     type:"text" },
+      { key:"email",          label:"Email",           type:"email" },
+      { key:"terms",          label:"Terms",           type:"textarea" },
+      { key:"feedback",       label:"Feedbacks",       type:"textarea" }
+    ],
+    listCols: ["name","status","region","kol_type","kol_qty","contact_person","owner"],
+    filters: ["region","owner","kol_type"]
+  }
+};
+
+// ----------- runtime state -----------
+const state = {
+  view: "dashboard",
+  options: {},          // {category: [{value, sort_order}]}
+  data: { trader: [], nontrader: [], agency: [] },
+  filter: { trader: { status:"All" }, nontrader: { status:"All" }, agency: { status:"All" } },
+  editing: null         // { module, row } | null
+};
+
+// ============== AUTH ==============
+async function checkSession() {
+  if (!sb) {
+    document.getElementById("login-screen").classList.remove("hidden");
+    document.getElementById("login-screen").classList.add("flex");
+    showError("Supabase not configured. Copy config.example.js → config.js and fill in credentials.");
+    return;
+  }
+  const { data } = await sb.auth.getSession();
+  if (data.session) showApp(data.session);
+  else showLogin();
+}
+function showLogin() {
+  document.getElementById("login-screen").classList.remove("hidden");
+  document.getElementById("login-screen").classList.add("flex");
+  document.getElementById("app-shell").classList.add("hidden");
+}
+function showError(msg) {
+  const el = document.getElementById("login-error");
+  el.textContent = msg; el.classList.remove("hidden");
+}
+async function showApp(session) {
+  document.getElementById("login-screen").classList.add("hidden");
+  document.getElementById("app-shell").classList.remove("hidden");
+  document.getElementById("app-shell").classList.add("flex");
+  document.getElementById("user-email").textContent = session.user.email;
+  await loadOptions();
+  await Promise.all([loadModule("trader"), loadModule("nontrader"), loadModule("agency")]);
+  render();
+}
+document.getElementById("login-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!sb) return;
+  const email = document.getElementById("login-email").value;
+  const password = document.getElementById("login-password").value;
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { showError(error.message); return; }
+  showApp(data.session);
+});
+document.getElementById("logout-btn").addEventListener("click", async () => {
+  if (sb) await sb.auth.signOut();
+  location.reload();
+});
+
+// ============== DATA LOAD ==============
+async function loadOptions() {
+  const { data, error } = await sb.from("options").select("*").order("sort_order");
+  if (error) { console.error(error); return; }
+  state.options = {};
+  data.forEach(r => {
+    if (!state.options[r.category]) state.options[r.category] = [];
+    state.options[r.category].push(r);
+  });
+}
+async function loadModule(mod) {
+  const tbl = SCHEMAS[mod].table;
+  const { data, error } = await sb.from(tbl).select("*").order("created_at", { ascending: false });
+  if (error) { console.error(error); return; }
+  state.data[mod] = data;
+}
+
+// ============== NAV ==============
+document.querySelectorAll(".nav-item").forEach(el => {
+  el.addEventListener("click", () => {
+    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+    el.classList.add("active");
+    state.view = el.dataset.view;
+    render();
+  });
+});
+
+// ============== RENDER ROUTER ==============
+function render() {
+  const root = document.getElementById("view-root");
+  if (state.view === "dashboard") root.innerHTML = renderDashboard();
+  else if (state.view === "settings") root.innerHTML = renderSettings();
+  else root.innerHTML = renderModule(state.view);
+  bindViewHandlers();
+}
+
+// ============== DASHBOARD ==============
+function renderDashboard() {
+  const total = state.data.trader.length + state.data.nontrader.length + state.data.agency.length;
+  const countBy = (mod, sub, status) => state.data[mod].filter(r =>
+    (sub === null || r.sub_category === sub) && r.status === status
+  ).length;
+
+  const matrixRow = (label, mod, sub, klass="") => {
+    const cells = STATUSES.map(s => {
+      const n = sub === null
+        ? state.data[mod].filter(r => r.status === s).length
+        : countBy(mod, sub, s);
+      return `<td class="text-center font-semibold ${n>0?'text-gray-900':'text-gray-300'}">${n}</td>`;
+    }).join("");
+    const totalN = sub === null
+      ? state.data[mod].length
+      : state.data[mod].filter(r => r.sub_category === sub).length;
+    return `<tr class="${klass}">
+      <td class="font-medium ${klass.includes('parent')?'text-gray-900':'text-gray-600 pl-6'}">${label}</td>
+      ${cells}
+      <td class="text-center font-bold">${totalN}</td>
+    </tr>`;
+  };
+
+  return `
+    <h1 class="text-2xl font-bold mb-1">Dashboard</h1>
+    <div class="text-sm text-gray-500 mb-6">${total} records across all modules</div>
+
+    <div class="grid grid-cols-3 gap-4 mb-8">
+      ${statCard("Trader KOL (P0)",    state.data.trader.length,    "💹")}
+      ${statCard("Non-Trader KOL (P1)",state.data.nontrader.length, "🎙")}
+      ${statCard("Agency (P0)",        state.data.agency.length,    "🏢")}
+    </div>
+
+    <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b bg-gray-50">
+        <div class="font-bold text-sm">Pipeline Summary Matrix</div>
+        <div class="text-xs text-gray-500">Counts by category × status</div>
+      </div>
+      <table class="crm w-full">
+        <thead><tr>
+          <th>Category</th>
+          ${STATUSES.map(s => `<th class="text-center">${s}</th>`).join("")}
+          <th class="text-center">Total</th>
+        </tr></thead>
+        <tbody>
+          ${matrixRow("P0 · Trader KOL", "trader", null, "parent bg-gray-50 font-bold")}
+          ${matrixRow("Crypto Trading", "trader", "Crypto Trading")}
+          ${matrixRow("CFD Trading", "trader", "CFD Trading")}
+          ${matrixRow("P1 · Non-Trader KOL", "nontrader", null, "parent bg-gray-50 font-bold")}
+          ${matrixRow("Crypto Native", "nontrader", "Crypto Native")}
+          ${matrixRow("Non-Crypto Native", "nontrader", "Non-Crypto Native")}
+          ${matrixRow("P0 · Agency", "agency", null, "parent bg-gray-50 font-bold")}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 mt-6">
+      <div class="bg-white rounded-xl border p-5">
+        <div class="font-bold text-sm mb-3">By Region</div>
+        ${groupCount("region")}
+      </div>
+      <div class="bg-white rounded-xl border p-5">
+        <div class="font-bold text-sm mb-3">By Owner</div>
+        ${groupCount("owner")}
+      </div>
+    </div>
+  `;
+}
+function statCard(label, n, icon) {
+  return `<div class="bg-white rounded-xl border p-5">
+    <div class="text-xs text-gray-500 uppercase font-semibold">${label}</div>
+    <div class="text-3xl font-bold mt-1">${n} <span class="text-xl">${icon}</span></div>
+  </div>`;
+}
+function groupCount(field) {
+  const counts = {};
+  ["trader","nontrader","agency"].forEach(m => state.data[m].forEach(r => {
+    const k = r[field] || "—";
+    counts[k] = (counts[k] || 0) + 1;
+  }));
+  const rows = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if (!rows.length) return `<div class="text-sm text-gray-400">No data yet</div>`;
+  return rows.map(([k,n]) =>
+    `<div class="flex justify-between text-sm py-1.5 border-b last:border-0">
+       <span>${k}</span><span class="font-semibold">${n}</span>
+     </div>`).join("");
+}
+
+// ============== MODULE LIST ==============
+function renderModule(mod) {
+  const sch = SCHEMAS[mod];
+  const f = state.filter[mod];
+  let rows = state.data[mod].slice();
+
+  // status tab
+  if (f.status !== "All") rows = rows.filter(r => r.status === f.status);
+  // other filters
+  sch.filters.forEach(fk => {
+    if (f[fk]) rows = rows.filter(r => r[fk] === f[fk]);
+  });
+  // search
+  if (f.q) {
+    const q = f.q.toLowerCase();
+    rows = rows.filter(r => Object.values(r).some(v => v && String(v).toLowerCase().includes(q)));
+  }
+
+  const statusCount = (s) => s === "All"
+    ? state.data[mod].length
+    : state.data[mod].filter(r => r.status === s).length;
+
+  const tabs = ["All", ...STATUSES].map(s => `
+    <button class="status-tab px-4 py-2 text-sm border-b-2 ${f.status===s?'border-arx-violet text-gray-900 font-semibold':'border-transparent text-gray-500 hover:text-gray-900'}"
+            data-status="${s}">
+      ${s} <span class="text-xs text-gray-400 ml-1">${statusCount(s)}</span>
+    </button>`).join("");
+
+  const filterControls = sch.filters.map(fk => {
+    const opts = (state.options[fieldOptKey(sch, fk)] || []).map(o =>
+      `<option value="${o.value}" ${f[fk]===o.value?'selected':''}>${o.value}</option>`).join("");
+    const lbl = (sch.fields.find(x=>x.key===fk) || {}).label || fk;
+    return `<select class="filter-select border rounded px-2 py-1.5 text-sm" data-field="${fk}">
+      <option value="">All ${lbl}</option>${opts}
+    </select>`;
+  }).join("");
+
+  const headers = sch.listCols.map(c => `<th>${(sch.fields.find(x=>x.key===c)||{}).label || c}</th>`).join("") + "<th></th>";
+  const body = rows.length === 0
+    ? `<tr><td colspan="${sch.listCols.length+1}" class="text-center text-gray-400 py-10">No records. Click + Add to create one.</td></tr>`
+    : rows.map(r => {
+        const tds = sch.listCols.map(c => {
+          if (c === "status") return `<td>${statusPill(r.status)}</td>`;
+          if (c === "name")   return `<td class="font-semibold text-gray-900">${escapeHtml(r[c]||"")}</td>`;
+          if (c.endsWith("_followers") || c.endsWith("_members") || c === "kol_qty")
+            return `<td class="text-right tabular-nums">${r[c]==null?"—":Number(r[c]).toLocaleString()}</td>`;
+          return `<td>${escapeHtml(r[c]||"")}</td>`;
+        }).join("");
+        return `<tr class="cursor-pointer" data-id="${r.id}">${tds}
+          <td class="text-right"><button class="edit-row text-arx-violet text-xs hover:underline" data-id="${r.id}">Edit ›</button></td>
+        </tr>`;
+      }).join("");
+
+  return `
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h1 class="text-2xl font-bold">${sch.label}</h1>
+        <div class="text-sm text-gray-500">${rows.length} of ${state.data[mod].length} records shown</div>
+      </div>
+      <div class="flex gap-2">
+        <button id="export-csv" class="px-3 py-2 text-sm border rounded-lg hover:bg-gray-50">Export CSV</button>
+        <button id="add-record" class="px-4 py-2 text-sm bg-arx-violet text-white rounded-lg font-semibold">+ Add ${sch.label}</button>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border shadow-sm">
+      <div class="border-b flex overflow-x-auto">${tabs}</div>
+      <div class="p-3 border-b flex gap-2 flex-wrap items-center bg-gray-50">
+        <input id="search-box" value="${f.q||""}" placeholder="Search…" class="border rounded px-3 py-1.5 text-sm flex-1 min-w-[180px]">
+        ${filterControls}
+        <button id="clear-filters" class="text-xs text-gray-500 hover:text-gray-900">Clear</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="crm w-full"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>
+      </div>
+    </div>
+  `;
+}
+function fieldOptKey(sch, fk) {
+  const f = sch.fields.find(x => x.key === fk);
+  return f && f.opt ? f.opt : fk;
+}
+function statusPill(s) {
+  const cls = ({
+    "Prospects":"pill-prospects", "In Contact":"pill-incontact",
+    "In Negotiating":"pill-innegotiating", "Ready to Sign":"pill-readytosign",
+    "Rejected":"pill-rejected"
+  })[s] || "pill-prospects";
+  return `<span class="pill ${cls}">${s||"—"}</span>`;
+}
+
+// ============== SETTINGS ==============
+function renderSettings() {
+  const cats = Object.keys(state.options).sort();
+  return `
+    <h1 class="text-2xl font-bold mb-1">Settings</h1>
+    <div class="text-sm text-gray-500 mb-6">Customize dropdown options. Add new values without touching code.</div>
+    <div class="grid grid-cols-2 gap-4">
+      ${cats.map(cat => {
+        const items = state.options[cat] || [];
+        return `<div class="bg-white rounded-xl border p-4">
+          <div class="font-bold text-sm mb-2 capitalize">${cat.replace(/_/g," ")}</div>
+          <div class="space-y-1 mb-3">
+            ${items.map(o => `
+              <div class="flex justify-between items-center text-sm py-1 border-b last:border-0">
+                <span>${escapeHtml(o.value)}</span>
+                <button class="opt-del text-red-500 text-xs hover:underline" data-id="${o.id}">remove</button>
+              </div>`).join("") || `<div class="text-xs text-gray-400">empty</div>`}
+          </div>
+          <form class="opt-add flex gap-2" data-cat="${cat}">
+            <input class="border rounded px-2 py-1 text-sm flex-1" placeholder="New value">
+            <button class="text-sm bg-arx-violet text-white px-3 rounded">Add</button>
+          </form>
+        </div>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+// ============== VIEW HANDLERS ==============
+function bindViewHandlers() {
+  const view = state.view;
+
+  if (view === "settings") {
+    document.querySelectorAll(".opt-del").forEach(btn => btn.addEventListener("click", async e => {
+      const id = e.currentTarget.dataset.id;
+      if (!confirm("Remove this option?")) return;
+      await sb.from("options").delete().eq("id", id);
+      await loadOptions(); render();
+    }));
+    document.querySelectorAll(".opt-add").forEach(form => form.addEventListener("submit", async e => {
+      e.preventDefault();
+      const cat = form.dataset.cat;
+      const value = form.querySelector("input").value.trim();
+      if (!value) return;
+      await sb.from("options").insert({ category: cat, value, sort_order: 999 });
+      await loadOptions(); render();
+    }));
+    return;
+  }
+
+  if (view === "dashboard") return;
+
+  // module list
+  const mod = view;
+  document.querySelectorAll(".status-tab").forEach(t => t.addEventListener("click", () => {
+    state.filter[mod].status = t.dataset.status; render();
+  }));
+  document.querySelectorAll(".filter-select").forEach(s => s.addEventListener("change", () => {
+    state.filter[mod][s.dataset.field] = s.value || undefined; render();
+  }));
+  const sb2 = document.getElementById("search-box");
+  if (sb2) sb2.addEventListener("input", debounce(() => {
+    state.filter[mod].q = sb2.value; render();
+    document.getElementById("search-box").focus();
+  }, 250));
+  document.getElementById("clear-filters").addEventListener("click", () => {
+    state.filter[mod] = { status: "All" }; render();
+  });
+  document.getElementById("add-record").addEventListener("click", () => openModal(mod, null));
+  document.querySelectorAll(".edit-row").forEach(btn => btn.addEventListener("click", e => {
+    e.stopPropagation();
+    const id = +e.currentTarget.dataset.id;
+    const row = state.data[mod].find(r => r.id === id);
+    openModal(mod, row);
+  }));
+  document.getElementById("export-csv").addEventListener("click", () => exportCSV(mod));
+}
+
+// ============== MODAL ==============
+function openModal(mod, row) {
+  state.editing = { mod, row };
+  const sch = SCHEMAS[mod];
+  document.getElementById("modal-title").textContent = (row?"Edit ":"New ") + sch.label;
+  const form = document.getElementById("modal-form");
+  form.innerHTML = sch.fields.map(f => fieldHtml(f, row?.[f.key])).join("");
+  document.getElementById("modal-delete").classList.toggle("hidden", !row);
+  document.getElementById("modal").classList.remove("hidden");
+  document.getElementById("modal").classList.add("flex");
+}
+function closeModal() {
+  document.getElementById("modal").classList.add("hidden");
+  document.getElementById("modal").classList.remove("flex");
+  state.editing = null;
+}
+function fieldHtml(f, val) {
+  val = (val == null ? "" : val);
+  const id = "fld-" + f.key;
+  if (f.type === "select") {
+    const opts = (state.options[f.opt] || []).map(o =>
+      `<option value="${escapeAttr(o.value)}" ${o.value===val?"selected":""}>${escapeHtml(o.value)}</option>`).join("");
+    return `<div>
+      <label class="text-xs font-semibold text-gray-600">${f.label}</label>
+      <select id="${id}" data-key="${f.key}" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
+        <option value="">— Select —</option>${opts}
+      </select></div>`;
+  }
+  if (f.type === "textarea") {
+    return `<div>
+      <label class="text-xs font-semibold text-gray-600">${f.label}</label>
+      <textarea id="${id}" data-key="${f.key}" rows="2" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">${escapeHtml(val)}</textarea>
+    </div>`;
+  }
+  return `<div>
+    <label class="text-xs font-semibold text-gray-600">${f.label}${f.required?' <span class="text-red-500">*</span>':''}</label>
+    <input id="${id}" data-key="${f.key}" type="${f.type}" value="${escapeAttr(val)}" ${f.required?"required":""}
+           class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
+  </div>`;
+}
+document.getElementById("modal-save").addEventListener("click", async () => {
+  const { mod, row } = state.editing;
+  const sch = SCHEMAS[mod];
+  const payload = {};
+  let missing = null;
+  sch.fields.forEach(f => {
+    const el = document.getElementById("fld-" + f.key);
+    let v = el.value;
+    if (v === "") v = null;
+    if (v != null && f.type === "number") v = Number(v);
+    if (f.required && (v == null || v === "")) missing = f.label;
+    payload[f.key] = v;
+  });
+  if (missing) { alert(missing + " is required"); return; }
+  if (!payload.status) payload.status = "Prospects";
+  let err;
+  if (row) ({ error: err } = await sb.from(sch.table).update(payload).eq("id", row.id));
+  else     ({ error: err } = await sb.from(sch.table).insert(payload));
+  if (err) { alert("Save failed: " + err.message); return; }
+  await loadModule(mod);
+  closeModal(); render();
+});
+document.getElementById("modal-delete").addEventListener("click", async () => {
+  const { mod, row } = state.editing;
+  if (!row) return;
+  if (!confirm("Delete this record? Cannot be undone.")) return;
+  const { error } = await sb.from(SCHEMAS[mod].table).delete().eq("id", row.id);
+  if (error) { alert("Delete failed: " + error.message); return; }
+  await loadModule(mod);
+  closeModal(); render();
+});
+
+// ============== CSV EXPORT ==============
+function exportCSV(mod) {
+  const sch = SCHEMAS[mod];
+  const cols = sch.fields.map(f => f.key);
+  const header = cols.map(c => (sch.fields.find(f=>f.key===c)||{}).label || c);
+  const lines = [header.map(csvCell).join(",")];
+  state.data[mod].forEach(r => lines.push(cols.map(c => csvCell(r[c])).join(",")));
+  const blob = new Blob([lines.join("\n")], { type:"text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${sch.table}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+function csvCell(v) {
+  if (v == null) return "";
+  const s = String(v).replace(/"/g,'""');
+  return /[",\n]/.test(s) ? `"${s}"` : s;
+}
+
+// ============== UTILS ==============
+function escapeHtml(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function escapeAttr(s){ return escapeHtml(s); }
+function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+// ============== BOOT ==============
+checkSession();
+</script>
+</body>
+</html>
