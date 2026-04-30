@@ -362,19 +362,23 @@ function renderDashboard() {
   ).length;
 
   const matrixRow = (label, mod, sub, klass="") => {
+    const isParent = klass.includes("parent");
     const cells = STATUSES.map(s => {
       const n = sub === null
         ? state.data[mod].filter(r => r.status === s).length
         : countBy(mod, sub, s);
-      return `<td class="text-center font-semibold ${n>0?'text-gray-900':'text-gray-300'}">${n}</td>`;
+      const numClass = isParent
+        ? `font-bold ${n>0?'text-gray-900':'text-gray-400'}`
+        : `font-semibold ${n>0?'text-gray-900':'text-gray-300'}`;
+      return `<td class="text-center ${numClass}">${n}</td>`;
     }).join("");
     const totalN = sub === null
       ? state.data[mod].length
       : state.data[mod].filter(r => r.sub_category === sub).length;
     return `<tr class="${klass}">
-      <td class="font-medium ${klass.includes('parent')?'text-gray-900':'text-gray-600 pl-6'}">${label}</td>
+      <td class="${isParent?'font-bold text-gray-900':'font-medium text-gray-600 pl-6'}">${label}</td>
       ${cells}
-      <td class="text-center font-bold">${totalN}</td>
+      <td class="text-center font-bold ${isParent?'text-gray-900':''}">${totalN}</td>
     </tr>`;
   };
 
@@ -400,13 +404,13 @@ function renderDashboard() {
           <th class="text-center">Total</th>
         </tr></thead>
         <tbody>
-          ${matrixRow("P0 · Trader KOL", "trader", null, "parent bg-gray-50 font-bold")}
+          ${matrixRow("Trader KOL", "trader", null, "parent bg-gray-50")}
           ${matrixRow("Crypto Trading", "trader", "Crypto Trading")}
           ${matrixRow("CFD Trading", "trader", "CFD Trading")}
-          ${matrixRow("P1 · Non-Trader KOL", "nontrader", null, "parent bg-gray-50 font-bold")}
+          ${matrixRow("Non-Trader KOL", "nontrader", null, "parent bg-gray-50")}
           ${matrixRow("Crypto Native", "nontrader", "Crypto Native")}
           ${matrixRow("Non-Crypto Native", "nontrader", "Non-Crypto Native")}
-          ${matrixRow("P0 · Agency", "agency", null, "parent bg-gray-50 font-bold")}
+          ${matrixRow("Agency", "agency", null, "parent bg-gray-50")}
         </tbody>
       </table>
     </div>
