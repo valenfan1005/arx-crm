@@ -8,21 +8,55 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Plus Jakarta Sans", Inter, sans-serif; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Plus Jakarta Sans", Inter, sans-serif; background:#f6f7f9; }
   .arx-violet { color: #B38DF4; }
   .bg-arx-violet { background: #B38DF4; }
   .bg-arx-purple { background: #381B81; }
   .bg-arx-midnight { background: #070700; }
   .text-arx-frost { color: #E9EAF0; }
-  table.crm th { font-weight:600; font-size:12px; text-transform:uppercase; color:#6b7280; padding:8px 10px; text-align:left; border-bottom:1px solid #e5e7eb; white-space:nowrap; }
-  table.crm td { padding:8px 10px; border-bottom:1px solid #f3f4f6; font-size:13px; vertical-align:top; }
-  table.crm tr:hover td { background:#fafafa; }
-  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
-  .pill-prospects { background:#f3f4f6; color:#374151; }
-  .pill-incontact { background:#dbeafe; color:#1e40af; }
-  .pill-innegotiating { background:#fef3c7; color:#92400e; }
-  .pill-readytosign { background:#dcfce7; color:#166534; }
-  .pill-rejected { background:#fee2e2; color:#991b1b; }
+
+  /* Card-row table */
+  table.crm { border-collapse: separate; border-spacing: 0 6px; width:100%; }
+  table.crm thead th { font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:#9ca3af; padding:6px 14px 10px; text-align:left; white-space:nowrap; border:0; background:transparent; }
+  table.crm tbody tr { background:#ffffff; transition:box-shadow .15s, transform .15s; }
+  table.crm tbody tr:hover { box-shadow: 0 2px 12px rgba(56,27,129,0.08); }
+  table.crm tbody td { padding:14px 14px; font-size:13px; vertical-align:middle; border-top:1px solid #eef0f3; border-bottom:1px solid #eef0f3; white-space:nowrap; }
+  table.crm tbody td:first-child { border-left:1px solid #eef0f3; border-top-left-radius:12px; border-bottom-left-radius:12px; }
+  table.crm tbody td:last-child { border-right:1px solid #eef0f3; border-top-right-radius:12px; border-bottom-right-radius:12px; }
+  table.crm tbody tr.empty td { background:transparent; border:0; }
+
+  /* Avatar */
+  .avatar { width:36px; height:36px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px; flex-shrink:0; letter-spacing:-0.02em; }
+  .avatar-violet { background: linear-gradient(135deg,#B38DF4,#8b5cf6); }
+  .avatar-purple { background: linear-gradient(135deg,#6d28d9,#381B81); }
+  .avatar-electric { background: linear-gradient(135deg,#22D1EE,#0891b2); }
+  .avatar-midnight { background: linear-gradient(135deg,#374151,#070700); }
+  .avatar-amber { background: linear-gradient(135deg,#fbbf24,#d97706); }
+  .avatar-rose { background: linear-gradient(135deg,#fb7185,#be123c); }
+
+  /* Name cell two-line */
+  .name-cell { display:flex; align-items:center; gap:12px; }
+  .name-main { font-weight:600; color:#0f172a; font-size:14px; line-height:1.2; }
+  .name-sub  { color:#94a3b8; font-size:12px; line-height:1.3; margin-top:2px; }
+
+  /* Pills */
+  .pill { display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:600; letter-spacing:0.01em; white-space:nowrap; }
+  .pill-prospects     { background:#f1f5f9; color:#475569; }
+  .pill-incontact     { background:#cde1fb; color:#1e3a8a; }
+  .pill-innegotiating { background:#fef3c7; color:#7B350F; }
+  .pill-readytosign   { background:#a6efcd; color:#065F46; }
+  .pill-rejected      { background:#ffd6d6; color:#7F1D1D; }
+  .tag { display:inline-block; padding:3px 9px; border-radius:6px; font-size:11px; font-weight:500; background:#f3eefe; color:#5b21b6; white-space:nowrap; }
+  .tag-soft { background:#f1f5f9; color:#475569; }
+
+  /* Link icon button */
+  .link-icon { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; font-size:11px; font-weight:700; text-decoration:none; }
+  .link-icon:hover { transform:scale(1.08); }
+  .link-yt { background:#fee2e2; color:#b91c1c; }
+  .link-tw { background:#dbeafe; color:#1d4ed8; }
+  .link-tg { background:#cffafe; color:#0e7490; }
+  .link-ws { background:#f3eefe; color:#6d28d9; }
+
   .modal-backdrop { background:rgba(7,7,0,.6); }
   .nav-item { padding:10px 14px; border-radius:8px; color:#cbd5e1; cursor:pointer; font-size:14px; display:flex; align-items:center; gap:10px; }
   .nav-item:hover { background:#1f2937; color:white; }
@@ -415,29 +449,33 @@ function renderModule(mod) {
 
   const headers = sch.listCols.map(c => `<th>${(sch.fields.find(x=>x.key===c)||{}).label || c}</th>`).join("") + "<th></th>";
   const body = rows.length === 0
-    ? `<tr><td colspan="${sch.listCols.length+1}" class="text-center text-gray-400 py-10">No records. Click + Add to create one.</td></tr>`
+    ? `<tr class="empty"><td colspan="${sch.listCols.length+1}" class="text-center text-gray-400 py-10">No records. Click + Add to create one.</td></tr>`
     : rows.map(r => {
         const tds = sch.listCols.map(c => {
           const fieldDef = sch.fields.find(f => f.key === c) || {};
           const v = r[c];
           if (c === "status") return `<td>${statusPill(r.status)}</td>`;
-          if (c === "name")   return `<td class="font-semibold text-gray-900 whitespace-nowrap">${escapeHtml(v||"")}</td>`;
+          if (c === "name")   return `<td>${nameCell(r)}</td>`;
           if (c.endsWith("_followers") || c.endsWith("_members") || c === "kol_qty")
-            return `<td class="text-right tabular-nums">${v==null?"—":Number(v).toLocaleString()}</td>`;
-          if (fieldDef.type === "url" && v) {
-            const short = v.replace(/^https?:\/\/(www\.)?/, "").slice(0, 28);
-            return `<td><a href="${escapeAttr(v)}" target="_blank" rel="noopener" class="text-arx-violet hover:underline" title="${escapeAttr(v)}">${escapeHtml(short)}${v.length>28?"…":""}</a></td>`;
-          }
+            return `<td class="text-right tabular-nums">${v==null?'<span class="text-gray-300">—</span>':Number(v).toLocaleString()}</td>`;
+          if (fieldDef.type === "url" && v) return `<td>${linkIcon(c, v)}</td>`;
+          if (fieldDef.type === "url" && !v) return `<td><span class="text-gray-300">—</span></td>`;
           if (fieldDef.type === "email" && v)
             return `<td><a href="mailto:${escapeAttr(v)}" class="text-arx-violet hover:underline">${escapeHtml(v)}</a></td>`;
           if (fieldDef.type === "textarea" && v) {
             const short = v.length > 50 ? v.slice(0,50)+"…" : v;
-            return `<td class="text-gray-600" title="${escapeAttr(v)}" style="max-width:240px">${escapeHtml(short)}</td>`;
+            return `<td class="text-gray-500 text-xs" title="${escapeAttr(v)}" style="max-width:240px;white-space:normal;line-height:1.4">${escapeHtml(short)}</td>`;
           }
-          return `<td class="whitespace-nowrap">${escapeHtml(v||"")}</td>`;
+          if (["region","language","sub_category","trading_asset","trading_pairs","trading_platform","social_content","main_content_type","kol_type"].includes(c) && v) {
+            return `<td><span class="tag tag-soft">${escapeHtml(v)}</span></td>`;
+          }
+          if (c === "owner" && v) {
+            return `<td><span class="tag">${escapeHtml(v)}</span></td>`;
+          }
+          return `<td>${v ? escapeHtml(v) : '<span class="text-gray-300">—</span>'}</td>`;
         }).join("");
-        return `<tr class="cursor-pointer" data-id="${r.id}">${tds}
-          <td class="text-right whitespace-nowrap"><button class="edit-row text-arx-violet text-xs hover:underline" data-id="${r.id}">Edit ›</button></td>
+        return `<tr data-id="${r.id}">${tds}
+          <td class="text-right"><button class="edit-row text-arx-violet text-xs font-semibold hover:underline" data-id="${r.id}">Edit ›</button></td>
         </tr>`;
       }).join("");
 
@@ -477,6 +515,44 @@ function statusPill(s) {
     "Rejected":"pill-rejected"
   })[s] || "pill-prospects";
   return `<span class="pill ${cls}">${s||"—"}</span>`;
+}
+
+function avatarFor(row) {
+  const palette = {
+    "Korea":"avatar-violet", "Vietnam":"avatar-electric", "Taiwan":"avatar-purple",
+    "Greater China":"avatar-rose", "Philippines":"avatar-amber", "Thailand":"avatar-amber",
+    "Global":"avatar-midnight"
+  };
+  const cls = palette[row.region] || "avatar-midnight";
+  const letter = (row.name || "?").replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  return `<div class="avatar ${cls}">${escapeHtml(letter)}</div>`;
+}
+
+function nameCell(row) {
+  const subParts = [];
+  if (row.region) subParts.push(row.region);
+  if (row.language) subParts.push(row.language);
+  if (row.sub_category) subParts.push(row.sub_category);
+  const sub = subParts.slice(0,3).join(" · ");
+  return `
+    <div class="name-cell">
+      ${avatarFor(row)}
+      <div>
+        <div class="name-main">${escapeHtml(row.name||"—")}</div>
+        ${sub ? `<div class="name-sub">${escapeHtml(sub)}</div>` : ""}
+      </div>
+    </div>`;
+}
+
+function linkIcon(field, url) {
+  const map = {
+    youtube_link: { cls:"link-yt", txt:"YT" },
+    twitter_link: { cls:"link-tw", txt:"X" },
+    telegram_link: { cls:"link-tg", txt:"TG" },
+    website: { cls:"link-ws", txt:"W" }
+  };
+  const m = map[field] || { cls:"link-ws", txt:"↗" };
+  return `<a href="${escapeAttr(url)}" target="_blank" rel="noopener" class="link-icon ${m.cls}" title="${escapeAttr(url)}">${m.txt}</a>`;
 }
 
 // ============== SETTINGS ==============
