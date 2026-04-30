@@ -147,7 +147,7 @@
       <h3 id="expand-title" class="font-bold text-lg">—</h3>
       <button onclick="closeExpand()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
     </div>
-    <div id="expand-body" class="p-5 overflow-y-auto text-sm text-gray-800 whitespace-pre-wrap leading-relaxed flex-1"></div>
+    <div id="expand-body" class="p-5 overflow-y-auto text-sm text-gray-800 whitespace-pre-wrap leading-relaxed flex-1" style="word-break:break-word;overflow-wrap:anywhere"></div>
     <div class="p-4 border-t flex justify-end gap-2">
       <button type="button" onclick="closeExpand()" class="px-4 py-2 text-sm border rounded-lg">Close</button>
       <button id="expand-edit" type="button" class="px-4 py-2 text-sm bg-arx-violet text-white rounded-lg font-semibold">Edit</button>
@@ -479,8 +479,8 @@ function renderModule(mod) {
             return `<td><a href="mailto:${escapeAttr(v)}" class="text-arx-violet hover:underline">${escapeHtml(v)}</a></td>`;
           if (fieldDef.type === "textarea" && v) {
             const short = v.length > 50 ? v.slice(0,50)+"…" : v;
-            const clickable = v.length > 50 ? `class="text-gray-500 text-xs expand-cell cursor-pointer hover:bg-violet-50" data-id="${r.id}" data-field="${f.key||''}" data-key="${c}" data-mod="${mod}"` : `class="text-gray-500 text-xs"`;
-            return `<td ${clickable} style="max-width:240px;white-space:normal;line-height:1.4">${escapeHtml(short)}${v.length>50?` <span class="text-arx-violet font-semibold ml-1">↗</span>`:""}</td>`;
+            const clickable = v.length > 50 ? `class="text-gray-500 text-xs expand-cell cursor-pointer hover:bg-violet-50" data-id="${r.id}" data-key="${c}"` : `class="text-gray-500 text-xs"`;
+            return `<td ${clickable} style="max-width:240px;min-width:160px;white-space:normal;word-break:break-word;overflow-wrap:anywhere;line-height:1.4">${escapeHtml(short)}${v.length>50?` <span class="text-arx-violet font-semibold ml-1">↗</span>`:""}</td>`;
           }
           if (["region","language","sub_category","trading_asset","trading_pairs","trading_platform","social_content","main_content_type","kol_type"].includes(c) && v) {
             return `<td><span class="tag tag-soft">${escapeHtml(v)}</span></td>`;
